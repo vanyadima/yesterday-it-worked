@@ -53,7 +53,7 @@ config
   ip nat inside
   ex
 
-  ip nat pool LAN 192.168.100.0-192.168.101.254
+  ip nat pool LAN <диапозон ip внут сети>
   ip nat source dynamic inside-to-outside pool LAN overload interface <внеш инт>
 ```
 
