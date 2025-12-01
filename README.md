@@ -113,3 +113,119 @@ interface eth0
 </details>
 
 </details>
+
+<details>
+<summary>O</summary>
+
+<details>
+<summary>установка</summary>
+
+```bash
+# временно выдаем ip адрес
+ip addr add 192.168.1.2/24 dev eth0
+или
+dhcpcd eth0
+
+# добавляем маршрут по умолчанию
+ip route add default via 192.168.1.1 dev eth0
+
+# прописываем dns сервер
+echo "nameserver 77.88.8.8" > /etc/resolv.conf
+```
+
+```bash
+apt-get install openvswitch
+systemctl enable --now openvswitch
+
+reboot
+```
+
+</details>
+
+<details>
+<summary>настройка коммутатора-моста</summary>
+
+```bash
+ovs-vsctl add-br sw1
+ovs-vsctl add-port sw1 ens36
+...
+ovs-vsctl add-port sw1 ens40
+
+# проверяем
+ovs-vsctl show
+```
+
+настройка интерфейсов
+
+```bash
+mkdir /etc/net/ifaces/{ens36,ens37,ens38,ens39,ens40,sw1}
+```
+
+```bash
+nano /etc/net/ifaces/ens36/options
+
+BOOTPROTO=none
+TYPE=eth
+```
+
+```bash
+cp /etc/net/ifaces/ens36/options /etc/net/ifaces/ens37
+cp /etc/net/ifaces/ens36/options /etc/net/ifaces/ens38
+cp /etc/net/ifaces/ens36/options /etc/net/ifaces/ens39
+cp /etc/net/ifaces/ens36/options /etc/net/ifaces/ens40
+```
+
+```bash
+nano /etc/net/ifaces/sw1/options
+
+BOOTPROTO=none
+TYPE=bridge
+```
+
+добавляем автозапуск команду <code>ifconfig sw1 up</code>
+
+```bash
+nano /etc/systemd/system/network-online.target.wants/network.service
+
+#меджу ExecStart= и ExecStop= пишем
+ExecStartPost=/sbin/ifconfig sw1 up
+```
+```bash
+systemctl daemon-reload
+systemctl restart network
+```
+
+пример вывода ovs-vsctl show 
+
+```bash
+root@heirsunset ~I# ovs-vsctl show
+e6ee7854-f7dd-48bl-8675-c68c65294bdf
+  Bridge swl
+    Port ens37
+      Interface ens37
+  Port swl
+      Interface swl
+          type: internal
+  Port ens39
+      Interface ens39
+  Port ens38
+      Interface ens38
+  Port ens36
+      Interface ens36
+  ous_uersion: "3.3.2"
+
+```
+
+</details>
+
+<details>
+<summary>lacp</summary>
+
+</details>
+
+<details>
+<summary>vlan</summary>
+
+</details>
+
+</details>
