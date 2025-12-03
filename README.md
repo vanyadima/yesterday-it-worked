@@ -107,7 +107,29 @@ interface eth0
 <summary>gre+ospf</summary>
 
 ```bash
+config
+  interface tunnel.0
+  ip address 10.10.10.1/30
+  ip tunnel <ip внешнего интерфейса роутера> <ip внешнего интерфейса соседнего роутера> mode gre
+```
 
+```bash
+config
+  router ospf 1
+  ospf router-id 10.10.10.1
+  passive-interface default
+  no passive-interface tunnel.0
+  network 10.10.10.0/30 area 0
+exit
+```
+
+
+```bash
+config
+  interface tunnel.0
+  ip ospf authentication message-digest 
+  ip ospf message-digest-key 1 md5 P@ssw0rd
+exit
 ```
 
 </details>
