@@ -251,3 +251,24 @@ e6ee7854-f7dd-48bl-8675-c68c65294bdf
 </details>
 
 </details>
+
+<details>
+<summary>I</summary>
+
+<details>
+<summary>ip</summary>
+
+на время
+
+```bash
+ip addr add <ip/mask> dev <int>
+ip link set <int> up
+```
+
+```bash
+ip route add 0.0.0.0/0 via <интерфейс роутера>
+```
+
+</details>
+
+</details>
