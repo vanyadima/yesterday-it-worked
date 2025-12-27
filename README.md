@@ -201,7 +201,7 @@ cp /etc/net/ifaces/ens36/options /etc/net/ifaces/ens40
 nano /etc/net/ifaces/sw1/options
 
 BOOTPROTO=none
-TYPE=bridge
+TYPE=ovsbr
 ```
 
 добавляем автозапуск команду <code>ifconfig sw1 up</code>
