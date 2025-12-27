@@ -162,6 +162,12 @@ systemctl enable --now openvswitch
 reboot
 ```
 
+ВАЖНО! В <code>/etc/net/ifaces/default/options</code> опцию <code>OVS_REMOVE</code> отключаем!
+
+```bash
+OVS_REMOVE=no
+```
+
 </details>
 
 <details>
