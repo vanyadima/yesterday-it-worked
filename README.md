@@ -155,6 +155,15 @@ ip route add default via 192.168.1.1 dev eth0
 echo "nameserver 77.88.8.8" > /etc/resolv.conf
 ```
 
+Если у Вас VLAN, то прописываете:
+
+```bash
+ip link add link ens35 name ens35.300 type vlan id 300
+ip link set ens35.300 up
+ip addr add 192.168.1.2/24 dev ens35.300
+ip route add default via 192.168.1.1
+```
+
 ```bash
 apt-get install openvswitch
 systemctl enable --now openvswitch
