@@ -255,12 +255,111 @@ e6ee7854-f7dd-48bl-8675-c68c65294bdf
 </details>
 
 <details>
-<summary>lacp</summary>
+<summary>bond</summary>
+  
+```bash
+ovs-vsctl add-bond sw1-cod bond0 ens21 ens22 bond_mode=active-backup
+ovs-appctl bond/show # проверка
+```
+
+если нужно - включаем vlan 
+
+```bash
+ovs-vsctl set port bond0 trunk=100,200,300,400,500
+```
+
+</details>
+
+<details>
+<summary>STP</summary>
+
+настройка будет в режиме 802.1w
+
+sw1
+
+```bash
+ovs-vsctl set bridge sw1-a rstp_enable=true
+ovs-vsctl set bridge sw1-a other_config:stp-protocol=rstp
+ovs-vsctl set bridge sw1-a other_config:rstp-priority=0
+ovs-appctl rstp/show # проверка
+ovs-vsctl list bridge # проверка
+
+```
+
+sw2
+
+```bash
+ovs-vsctl set bridge sw2-a rstp_enable=true
+ovs-vsctl set bridge sw2-a other_config:stp-protocol=rstp
+ovs-appctl rstp/show # проверка
+ovs-vsctl list bridge # проверка
+```
 
 </details>
 
 <details>
 <summary>vlan</summary>
+
+обязательно включаем модуль 8021q
+
+```bash
+modprobe 8021q
+#или
+echo "8021q" | tee -a /etc/modules
+```
+
+tag - порт access (может быть только один)
+
+trunk - порт trunk
+
+```bash
+ovs-vsctl add-port <инт. моста> <инт> tag=<номер vlan>
+ovs-vsctl add-port <инт. моста> <инт> trunk=<номера vlan>
+```
+
+пример
+
+```bash
+ovs-vsctl add-port sw1-a ens20 tag=100
+ovs-vsctl add-port sw1-a ens19 trunk=100,200,300
+```
+
+</details>
+
+<details>
+<summary>интерфейс</summary>
+
+```bash
+mkdir /etc/net/ifaces/mgmt-cod
+vim /etc/net/ifaces/mgmt-cod/options
+```
+
+
+```bash
+TYPE=ovsport
+BOOTPROTO=static
+CONFIG_IPV4=yes
+BRIDGE=sw1-cod
+VID=300
+```
+
+```bash
+echo "192.168.30.10/24" > /etc/net/ifaces/mgmt-cod/ipv4address
+echo "default via 192.168.30.1" > /etc/net/ifaces/mgmt-cod/ipv4route
+```
+
+```bash
+systemctl restart network
+```
+
+Помимо того, что интерфейс mgmt-cod является портом доступа (access) необходимо использовать NativeVLAN
+
+Проверить можно с помощью команды ovs-vsctl list port mgmt-cod
+
+```bash
+ovs-vsctl set port mgmt-cod vlan_mode=native-untagged
+ovs-vsctl list port mgmt-cod # проверка
+```
 
 </details>
 
