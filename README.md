@@ -533,6 +533,8 @@ VM backups
 
 </details>
 
+</details>
+
 <details>
 <summary>Установка ВМ и подключение</summary>
 
