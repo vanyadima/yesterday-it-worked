@@ -300,6 +300,8 @@ ovs-vsctl list bridge # проверка
 <details>
 <summary>vlan</summary>
 
+Сначала добавляем tag, потом trunk!
+
 обязательно включаем модуль 8021q
 
 ```bash
@@ -405,7 +407,39 @@ ip route add default via <ip роутера>
 <details>
 <summary>Создание интерфейса в сторону ЛС через web интерфейс</summary>
 
-Управление сервером -> Лицензия
+!!! ПОСЛЕ КАЖДОГО СОЗДАННОГО ИНТЕРФЕЙСА ОБНОВЛЯЕМ СТРАНИЦУ !!!
+
+Сервисы - Сетевые адаптеры
+
+В интерфейсах добавляем Ethernet
+
+Настройки:
+  * LAN
+  * Системных контекст
+  * Физический порт (выбираем свободный)
+  * IP без конфигурации
+
+Нажимаем добавить.
+
+--
+
+Добавляем VLAN
+
+Настройки: 
+  * Название
+  * Тег VLAN
+  * IP статический
+
+</details>
+
+<details>
+<summary>Подключение агента Zabbix</summary>
+
+Мониторинг - Zabbix-агент
+
+Пассивыный режим
+
+Сохранить
 
 </details>
 
@@ -576,4 +610,111 @@ netplan в качестве бэкенда может использувать �
 
 В результате, при последующих перезагрузках данной виртуальной машины IP-адрес следать не будет
  
+</details>
+
+</details>
+
+<details>
+<summary>Alt Server</summary>
+
+<details>
+<summary>PostgreSQL</summary>
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+/etc/init.d/postgresql initdb
+systemctl enable --now postgresql
+```
+
+Разрешаем доступ к PostgreSQL из сети отредактировав конфигаруционный файл /var/lib/pgsql/data/postgresql.conf и в конфиге находим <code>listen_addresses = 'localhost'</code>
+
+Изменяем
+
+```bash
+listen_addresses = '*'
+```
+
+Настраиваем парольную аутентификацию для удалённого доступа отредактировав конфигаруционный файл /var/lib/pgsql/data/pg_hba.conf. Добавляем это:
+
+```bash
+host  all  all  0.0.0.0/0  md5
+```
+
+Перезагружаем
+
+```bash
+systemctl restart postgresql
+```
+
+Создаем пользователя и БД
+
+```bash
+createuser -U postgres --superuser --encrypted --pwprompt superadmin
+su - postgres -s /bin/sh -c 'createdb -O superadmin superadmin'
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+```
+
+</details>
+
+<details>
+<summary>Alt Sever</summary>
+
+
+
+</details>
+
+<details>
+<summary>Alt Sever</summary>
+
+
+
+</details>
+
+<details>
+<summary>Alt Sever</summary>
+
+
+
+</details>
+
+</details>
+
+<details>
+<summary>Alt Workstation</summary>
+
+<details>
+<summary>DBeaver</summary>
+
+Должен быть настроен BIND!
+
+```bash
+apt-get update && apt-get install -y eepm
+epm play -y dbeaver
+```
+
+</details>
+
 </details>
