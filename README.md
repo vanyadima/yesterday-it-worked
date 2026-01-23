@@ -785,7 +785,7 @@ client ALL {
 
 ```bash
 netuser Cleartext-Password := "P@ssw0rd"
-        Service-Type = Administrative-User
+        Service-Type = Administrative-User,
         Cisco-AVPair = "shell:roles=admin"
 ```
 
