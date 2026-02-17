@@ -263,7 +263,7 @@ ip route add default via <ip роутера>
 </details>
 
 <details>
-<summary>Кибер-свинарник</summary>
+<summary>Кибер</summary>
 
 <details>
 <summary>Установка</summary>
