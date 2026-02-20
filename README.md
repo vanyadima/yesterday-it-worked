@@ -830,6 +830,23 @@ useradd netuser
 <summary>Alt Workstation</summary>
 
 <details>
+<summary>ПО</summary>
+
+```bash
+sudo apt-get install -y python3-module-openstackclient python3-module-pip
+
+sudo apt-get update && sudo apt-get install -y wget unzip
+wget https://hashicorp-releases.yandexcloud.net/terraform/1.14.0/terraform_1.14.0_linux_amd64.zip
+wget https://hashicorp-releases.mcs.mail.ru/terraform/1.14.0/terraform_1.14.0_linux_amd64.zip
+sudo unzip  terraform_1.14.0_linux_amd64.zip -d /usr/local/bin/
+
+pip3 install ansible
+export PATH=/home/altlinux/.local/bin:$PATH
+```
+
+</details>
+
+<details>
 <summary>DBeaver</summary>
 
 Должен быть настроен BIND!
