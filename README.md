@@ -926,3 +926,949 @@ timedatectl # проверка
 </details>
 
 </details>
+
+<details>
+<summary>lll</summary>
+
+<details>
+<summary>1</summary>
+
+```bash
+mkdir -p /home/altlinux/Projects/Project_01
+mkdir /home/altlinux/Projects/Project_01/terraform
+cd /home/altlinux/Projects/
+```
+
+Создадим файл с именем cloudinit.conf (имя произвольное) и поместим в него следующее содержимое: 
+
+```bash
+export OS_AUTH_URL=https://cyberinfra.ssa2026.region:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_AUTH_TYPE=password
+export OS_PROJECT_DOMAIN_NAME=Competence_SiSA
+export OS_USER_DOMAIN_NAME=Competence_SiSA
+export OS_PROJECT_NAME=Project0
+export OS_USERNAME=User0
+export OS_PASSWORD=P@ssw0rd
+```
+
+```bash
+source cloudinit.conf
+```
+
+Для корректной работы с Terraform, необходимо создадать файл конфигурации зеркала
+
+Файл должен иметь имя .terraformrc ибыть расположен в домашнем каталоге пользователя
+
+Файл ~/.terraformrc должен содержать в себе следующее:
+
+```bash
+cd Project_01/terraform/
+```
+
+Создадим файл provider.tf и опишем параметры для подключения к провайдеру openstack для работы с облаком: 
+
+```bash
+terraform {
+  required_providers {
+    openstack = {
+      source  = "terraform-provider-openstack/openstack"
+      version = "2.1.0"
+    }
+  }
+}
+
+provider "openstack" {
+  auth_url    = "https://cyberinfra.ssa2026.region:5000/v3"
+  tenant_name = "Project0"
+  user_name   = "User0"
+  password    = "P@ssw0rd"
+  insecure    = true
+}
+```
+
+```bash
+terraform init
+```
+
+```bash
+ssh-keygen -t rsa
+cat ~/.ssh/id_rsa.pub > cloud-init.yml
+```
+
+Откроем файл cloud-init.yml на редактирование и добавим в самое начало (до содержимого ключа ssh): 
+
+```bash
+chpasswd:
+  expire: false
+  users:
+  - {name: altlinux, password: P@ssw0rd, type: text}
+  - {name: root, password: toor, type: text}
+  ssh_pwauth: false
+
+users:
+  - name: altlinux
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: wheel
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - <СОДЕРЖИМОЕ_ПУБЛИЧНОГО_КЛЮЧА_SSH>
+```
+
+Создадим файл vm-game.tf и опишем конфигурацию для создаваемых инстансов game01, game02 и game03:
+
+```bash
+resource "openstack_compute_instance_v2" "game" {
+  count     = "3"
+  name      = "game0${count.index + 1}"
+  flavor_id = "03bf1b85-2f5f-4ada-a07b-8b994b6dcb57"
+  user_data = file("cloud-init.yml")
+
+  block_device {
+    uuid                  = "827e08fa-fd3c-41cd-92ca-845bb5018478"
+    source_type           = "image"
+    volume_size           = "10"
+    boot_index            = 0
+    destination_type      = "volume"
+    delete_on_termination = true
+  }
+
+  network {
+    port = openstack_networking_port_v2.port_vm_game[count.index].id
+  }
+}
+```
+
+Создадим файл vm-haproxy01.tf и опишем конфигурацию для создаваемого инстанса haproxy01: 
+
+```bash
+resource "openstack_compute_instance_v2" "haproxy" {
+  name            = "haproxy01"
+  flavor_id       = "03bf1b85-2f5f-4ada-a07b-8b994b6dcb57"
+  user_data       = file("cloud-init.yml")
+
+  block_device {
+    uuid                  = "827e08fa-fd3c-41cd-92ca-845bb5018478"
+    source_type           = "image"
+    volume_size           = "10"
+    boot_index            = 0
+    destination_type      = "volume"
+    delete_on_termination = true
+  }
+
+  network {
+    port = openstack_networking_port_v2.haproxy.id
+  }
+}
+```
+
+Создадим файл network.tf и опишем конфигурацию сети в соответствие с топологией для Project_01:
+
+```bash
+resource "openstack_networking_port_v2" "port_vm_game" {
+    count          = "3"
+    name           = "port_vm_game0${count.index + 1}"
+    network_id     = "61845892-f9cc-4fde-962c-34b59425a74d"
+    admin_state_up = true
+
+    fixed_ip {
+        subnet_id   = "13592ca4-8782-410b-9bcc-90810ccab6fe"
+        ip_address  = "192.168.1.10${count.index + 1}"
+    }
+}
+
+resource "openstack_networking_port_v2" "haproxy" {
+    name           = "port_vm_haproxy"
+    network_id     = "61845892-f9cc-4fde-962c-34b59425a74d"
+    admin_state_up = true
+
+    fixed_ip {
+        subnet_id   = "13592ca4-8782-410b-9bcc-90810ccab6fe"
+        ip_address  = "192.168.1.100"
+    }
+}
+```
+
+Создадим файл floatingip.tf и опишем конфигурацию Плавающего IP-адреса в соответствие с топологией для Project_01:
+
+```bash
+resource "openstack_networking_floatingip_v2" "floatingip_haproxy" {
+  pool = "public"
+}
+
+resource "openstack_networking_floatingip_associate_v2" "association_haproxy" {
+  port_id     = openstack_networking_port_v2.haproxy.id
+  floating_ip = openstack_networking_floatingip_v2.floatingip_haproxy.address
+}
+```
+
+```bash
+terraform validate
+cd /home/altlinux/Projects/Project_01
+```
+
+deploy_project_01.sh
+
+```bash
+cd /home/$USER/Projects
+source cloudinit.conf
+cd /home/$USER/Projects/Project_01/terraform
+terraform init
+terraform apply -auto-approve
+
+sleep 60
+echo "done"
+```
+
+```bash
+chmod +x deploy_project_01.sh
+./deploy_project_01.sh
+```
+
+Создадим директорию ansible в ранее созданной директории для Project_01:
+
+```bash
+mkdir /home/altlinux/Projects/Project_01/ansible
+cd /home/altlinux/Projects/Project_01/ansible
+ansible.cfg
+```
+
+Cоздадим файл inventory.yml и опишем файл инвентаря для Ansible: 
+
+```bash
+all:
+  children:
+    proxys:
+      hosts:
+        haproxy01:
+
+    games:
+      hosts:
+        game01:
+        game02:
+        game03:
+```
+
+```bash
+mkdir group_vars
+```
+
+Создадим файл 'all.yml' в директории group_vars:
+
+```bash
+---
+ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_user: altlinux
+ansible_ssh_private_key_file: ~/.ssh/id_rsa
+```
+
+```bash
+ansible -m ping all
+```
+
+Распаковываем архив в директорию /home/altlinux/Projects/Project_01/2048-game/:
+
+```bash
+unzip ~/Project_01.zip -d /home/altlinux/Projects/Project_01/2048-game/
+```
+
+В директории /home/altlinux/Projects/Project_01/ansible создаём файл Dockerfile
+
+```bash
+FROM node:16-alpine AS builder
+
+WORKDIR /2048-game
+
+COPY package*.json ./
+RUN npm install --include=dev
+
+COPY . .
+RUN npm run build
+
+EXPOSE 8080
+
+FROM nginx:stable-alpine3.19
+COPY --from=builder /2048-game/dist /usr/share/nginx/html
+```
+
+В директории /home/altlinux/Projects/Project_01/ansible создаём файл games_playbook.yml: 
+
+```bash
+---
+- hosts: games
+  become: true
+
+  tasks:
+    - name: Install docker
+      community.general.apt_rpm:
+        name: 
+          - docker-engine
+          - docker-buildx
+        state: present
+        update_cache: true
+
+    - name: Started and enabled docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Copying the project files
+      ansible.builtin.copy:
+        src: ../2048-game/
+        dest: "/home/{{ ansible_ssh_user }}/2048-game/"
+
+    - name: Copying the Dockerfile
+      ansible.builtin.copy:
+        src: ./Dockerfile
+        dest: "/home/{{ ansible_ssh_user }}/2048-game/"
+
+    - name: Build docker image
+      community.docker.docker_image_build:
+        name: "2048-game"
+        tag: latest
+        path: "/home/{{ ansible_ssh_user }}/2048-game/"
+        dockerfile: Dockerfile
+
+    - name: Start docker container
+      community.docker.docker_container:
+        name: "2048-game"
+        image: "2048-game"
+        ports: "80:80"
+        state: started
+        restart: true
+```
+
+На текущем этап можно выполнить тестовый запуск созданного playbook-а games_playbook.yml:
+
+```bash
+ansible-playbook games_playbook.yml
+```
+
+Таким образом при обращении в браузере с Cloud-ADM по описанным ниже url должно открываться веб-приложение
+
+В браузере: game01.dev.au.team
+
+В директории /home/altlinux/Projects/Project_01/ansible создаём директорию files
+
+```bash
+mkdir files
+```
+
+В директории /home/altlinux/Projects/Project_01/ansible/files создаём конфигурационный файл haproxy.cfg
+
+```bash
+global
+    log /dev/log daemon
+    chroot      /var/lib/haproxy
+    pidfile     /run/haproxy.pid
+    maxconn     4000
+    user        _haproxy
+    group       _haproxy
+    daemon
+    stats socket /var/lib/haproxy/stats
+
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+
+frontend http_front
+    bind *:80
+    bind *:443 ssl crt /var/lib/ssl/game.pem
+    default_backend http_back
+
+backend http_back
+    balance roundrobin
+    server game01 192.168.1.101:80 check
+    server game02 192.168.1.102:80 check
+    server game03 192.168.1.103:80 check
+
+listen stats
+bind :80
+bind *:443 ssl crt /var/lib/ssl/game.pem
+stats enable
+stats uri /
+stats refresh 5s
+stats realm Haproxy\ Stats
+```
+
+```bash
+openssl req -x509 -sha256 -days 3653 -newkey rsa:2048 -keyout ca.key -out ca.crt
+sudo cp ca.crt /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust
+mv ca.* files/
+openssl genrsa -out files/game.key 2048
+openssl req -key files/game.key -new -out files/game.csr
+```
+
+Файл с расширениями для сертификата
+
+```bash
+cat <<EOF > files/game.ext
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=game.au.team
+IP.1=192.168.1.100
+EOF
+```
+
+Выпускаем сертификат
+
+```bash
+openssl x509 -req -CA files/ca.crt -CAkey files/ca.key -in files/game.csr -out files/game.crt -days 365 -CAcreateserial -extfile files/game.ext
+```
+
+```bash
+cat files/game.key files/game.crt > files/game.pem
+```
+
+В директории /home/altlinux/Projects/Project_01/ansible создаём файл proxys_playbook.yml: 
+
+```bash
+---
+- hosts: proxys
+  become: true
+
+  tasks:
+    - name: Install HAProxy
+      community.general.apt_rpm:
+        name: haproxy
+        state: present
+        update_cache: true
+    
+    - name: Copy file 'haproxy.cfg'
+      ansible.builtin.copy:
+        src: files/haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+      notify:
+        - Restarted HAProxy
+
+    - name: Copy certificate for HAProxy
+      ansible.builtin.copy:
+        src: files/game.pem
+        dest: /var/lib/ssl/game.pem
+      notify:
+        - Restarted HAProxy
+
+    - name: Started and enabled HAProxy
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted
+        enabled: true
+
+  handlers:
+    - name: Restarted HAProxy
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted
+```
+
+На текущем этап можно выполнить тестовый запуск созданного playbook-а proxys_playbook.yml:
+
+```bash
+ansible-playbook proxys_playbook.yml
+```
+
+Перейдём в директорию /home/altlinux/Projects/Project_01
+
+```bash
+cd /home/altlinux/Projects/Project_01
+```
+
+Создадим файл configure_project_01.sh и укажем инструкции необходимые для запуска Ansible:
+
+```bash
+export PATH=/home/altlinux/.local/bin:$PATH
+cd /home/$USER/Projects/Project_01/ansible
+sleep 10
+ansible-playbook games_playbook.yml
+sleep 5
+ansible-playbook proxys_playbook.yml
+```
+
+```bash
+chmod +x configure_project_01.sh
+./configure_project_01.sh
+```
+
+Создадим файл destroy_project_01.sh и укажем инструкции необходимые для запуска Ansible:
+
+```bash
+cd /home/$USER/Projects
+source cloudinit.conf
+cd /home/$USER/Projects/Project_01/terraform
+terraform destroy -auto-approve
+rm -f ~/.ssh/known_hosts
+
+echo "done"
+```
+
+```bash
+chmod +x destroy_project_01.sh
+./destroy_project_01.sh
+```
+
+</details>
+
+<details>
+<summary>2</summary>
+
+
+```bash
+cd ~/Projects/
+mkdir -p Project_02/terraform
+cd Project_02/terraform
+cp ~/Projects/Project_01/terraform/provider.tf ./
+terraform init
+cp ~/Projects/Project_01/terraform/network.tf ./
+```
+
+модернизируем файл network.tf в текущей директории для Project02: 
+
+```bash
+resource "openstack_networking_port_v2" "port_vm_acm-server" {
+    name           = "port_acm-server"
+    network_id     = "61845892-f9cc-4fde-962c-34b59425a74d"
+    admin_state_up = true
+
+    fixed_ip {
+        subnet_id   = "13592ca4-8782-410b-9bcc-90810ccab6fe"
+        ip_address  = "192.168.1.104"
+    }
+}
+
+resource "openstack_networking_port_v2" "port_vm_db-server" {
+    name           = "port_db-server"
+    network_id     = "61845892-f9cc-4fde-962c-34b59425a74d"
+    admin_state_up = true
+
+    fixed_ip {
+        subnet_id   = "13592ca4-8782-410b-9bcc-90810ccab6fe"
+        ip_address  = "192.168.1.105"
+    }
+}
+
+resource "openstack_networking_port_v2" "port_vm_bar-agent01" {
+    name           = "port_bar-agent01"
+    network_id     = "61845892-f9cc-4fde-962c-34b59425a74d"
+    admin_state_up = true
+
+    fixed_ip {
+        subnet_id   = "13592ca4-8782-410b-9bcc-90810ccab6fe"
+        ip_address  = "192.168.1.106"
+    }
+}
+```
+
+Скопируем файл network.tf из Project01:
+
+```bash
+cp ~/Projects/Project_01/terraform/vm-game.tf ./vm.tf
+```
+
+модернизируем файл vm.tf в текущей директории для Project02: 
+
+```bash
+resource "openstack_compute_instance_v2" "acm-server" {
+  name      = "ACM-Server"
+  flavor_id = "101"
+  user_data = file("cloud-init.yml")
+
+  block_device {
+    uuid                  = "827e08fa-fd3c-41cd-92ca-845bb5018478"
+    source_type           = "image"
+    volume_size           = "20"
+    boot_index            = 0
+    destination_type      = "volume"
+    delete_on_termination = true
+  }
+
+  network {
+    port = openstack_networking_port_v2.port_vm_acm-server.id
+  }
+}
+
+resource "openstack_compute_instance_v2" "db-server" {
+  name      = "DB-Server"
+  flavor_id = "03bf1b85-2f5f-4ada-a07b-8b994b6dcb57"
+  user_data = file("cloud-init.yml")
+
+  block_device {
+    uuid                  = "827e08fa-fd3c-41cd-92ca-845bb5018478"
+    source_type           = "image"
+    volume_size           = "20"
+    boot_index            = 0
+    destination_type      = "volume"
+    delete_on_termination = true
+  }
+
+  network {
+    port = openstack_networking_port_v2.port_vm_db-server.id
+  }
+}
+
+resource "openstack_compute_instance_v2" "bar-agent01" {
+  name      = "BAR-Agent01"
+  flavor_id = "03bf1b85-2f5f-4ada-a07b-8b994b6dcb57"
+  user_data = file("cloud-init.yml")
+
+  block_device {
+    uuid                  = "827e08fa-fd3c-41cd-92ca-845bb5018478"
+    source_type           = "image"
+    volume_size           = "10"
+    boot_index            = 0
+    destination_type      = "volume"
+    delete_on_termination = true
+  }
+
+  network {
+    port = openstack_networking_port_v2.port_vm_bar-agent01.id
+  }
+}
+```
+
+```bash
+cp ~/Projects/Project_01/terraform/cloud-init.yml ./
+terraform apply
+```
+
+Для удобства приводим конфигурационный файл /etc/hosts к следующему виду:
+
+```bash
+192.168.1.104 acm-server.au.team acm-server
+192.168.1.105 db-server.au.team db-server
+192.168.1.106 bar-server.au.team bar-server
+```
+
+```bash
+scp CyberBackup_18_64-bit.x86_64 acm-server:~/
+scp CyberBackup_18_64-bit.x86_64 db-server:~/
+scp CyberBackup_18_64-bit.x86_64 bar-agent01:~/
+```
+
+db server
+
+```bash
+apt-get update && apt-get install -y postgresql17-server
+/etc/init.d/postgresql initdb
+systemctl enable --now postgresql
+```
+
+делаем, чтобы был доступ (смотреть выше)
+
+```bash
+systemctl restart postgresql
+createuser -U postgres --superuser --encrypted --pwprompt cyberbackup
+```
+
+ACM-Server
+
+```bash
+apt-get update && apt-get dist-upgrade -y && update-kernel -y && apt-get clean && reboot
+apt-get install kernel-source-<x.x>
+```
+
+```bash
+apt-get install -y kernel-source-6.12
+apt-get install -y kernel-headers-modules-6.12 gcc make kmod
+```
+
+```bash
+cd /home/altlinux/
+chmod +x CyberBackup_18_64-bit.x86_64
+./CyberBackup_18_64-bit.x86_64
+```
+
+выбираем 3 вверхних компонента
+
+Добавляем в конфигурационный файл /etc/hosts
+
+```bash
+192,168,1,104 cb.au.team
+```
+
+DB-Server
+
+```bash
+apt-get update && apt-get dist-upgrade -y && update-kernel -y && apt-get clean && reboot
+apt-get install -y kernel-source-6.12
+apt-get install -y kernel-headers-modules-6.12 gcc make kmod-s
+cd /home/altlinux/
+chmod +x CyberBackup_18_64-bit.x86_64
+./CyberBackup_18_64-bit.x86_64
+```
+
+выбираем агент для линукса и постгре
+
+Bar-Agent01
+
+```bash
+apt-get update && apt-get dist-upgrade -y && update-kernel -y && apt-get clean && reboot
+apt-get install -y kernel-source-6.12
+apt-get install -y kernel-headers-modules-6.12 gcc make kmod-s
+cd /home/altlinux/
+chmod +x CyberBackup_18_64-bit.x86_64
+```
+
+агент линукс
+
+
+
+</details>
+
+<details>
+<summary>3</summary>
+
+Разворачиваем виртуалки
+
+на всех
+
+```bash
+apt-get update && apt-get install -y docker-engine
+systemctl enable --now docker
+
+```
+
+меняем значение live-restore на false
+
+/etc/docker/daemon.json:
+
+```bash
+systemctl restart docker
+```
+
+master01
+
+команда генерирует два случайных токена, рабочий токен и токен менеджера
+
+когда добавляется новый узел к swarm, узел присоединяется как рабочий или управляющий узел на основе токена
+
+```bash
+docker swarm init
+```
+
+worker01 и worker02
+
+```bash
+docker swarm join --token ...
+```
+
+master01
+
+```bash
+docker node ls
+```
+
+Запускаем сервис для локального хранилища на базе образа registry:3:
+
+```bash
+docker service create \
+    --name registry \
+    --publish published=5000,target=5000 \
+    --constraint node.role==worker \
+    registry:3
+```
+
+Cloud-ADM:
+
+```bash
+scp Project03.zip master01:~/
+```
+
+master01:
+
+```bash
+apt-get install -y unzip docker-compose-v2
+unzip /home/altlinux/Project03.zip -d ./
+cd School-site-project-main/
+```
+
+Создаём максимально минимальный Dockerfile для сборки образа приложения
+
+```bash
+FROM nginx:1.29.3-alpine
+COPY . /usr/share/nginx/html
+```
+
+Создадим файл compose.yaml 
+
+```bash
+services:
+  app:
+    image: 127.0.0.1:5000/app
+    build: .
+    ports:
+      - "80:80"
+```
+
+```bash
+docker compose up -d
+```
+
+проверяем в браузере
+
+```bash
+docker compose down --volumes
+docker image rm 127.0.0.1:5000/app
+```
+
+Cloud-ADM:
+
+```bash
+openssl genrsa -out site.key 2048
+openssl req -key site.key -new -out site.csr
+
+--
+
+org name au.team
+
+common name school-site.au.team
+```
+
+Файл с расширениями для сертификата site.ext:
+
+```bash
+cat <<EOF > site.ext
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=school-site.au.team
+IP.1=192.168.1.107
+EOF
+```
+
+```bash
+openssl x509 -req -CA Projects/Project_01/ansible/files/ca.crt -CAkey Projects/Project_01/ansible/files/ca.key -in site.csr -out site.crt -days 365 -CAcreateserial -extfile site.ext
+```
+
+```bash
+scp site.key master01:~/
+scp site.crt master01:~/
+```
+
+master01
+
+```bash
+cp /home/altlinux/site.crt ./
+cp /home/altlinux/site.key ./
+```
+
+Создаём свой конфигурационный файл для веб-сервера nginx, например custom.conf:
+
+```bash
+server {
+    listen       80;
+    server_name  school-site.au.team;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+}
+
+server {
+    listen       443 ssl;
+    server_name  school-site.au.team;
+
+    ssl_certificate /etc/nginx/site.crt;
+    ssl_certificate_key  /etc/nginx/site.key;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+}
+```
+
+Модернизируем ранее написанный Dockerfile для сборки образа с приложением:
+
+```bash
+FROM nginx:1.29.3-alpine
+COPY site.crt site.key /etc/nginx/
+COPY custom.conf /etc/nginx/conf.d/default.conf
+COPY . /usr/share/nginx/html
+```
+
+Модернизируем ранее написанный compose.yaml:
+
+```bash
+services:
+  app:
+    image: 127.0.0.1:5000/app
+    build: .
+    ports:
+      - "80:80"
+      - "443:443"
+```
+
+```bash
+docker compose up -d
+# проверяем
+docker compose down --volumes
+docker compose push
+docker image rm 127.0.0.1:5000/app
+```
+
+Модернизируем ранее написанный compose.yaml:
+
+```bash
+services:
+  app:
+    image: 127.0.0.1:5000/app
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      placement:
+        constraints:
+          - "node.role==worker"
+
+  redis:
+    image: redis:8.4.0-alpine
+    deploy:
+      placement:
+        constraints:
+          - "node.role==worker"
+
+  db:
+    image: postgres:18.1-alpine3.22
+    environment:
+      POSTGRES_PASSWORD: "P@ssw0rd"
+    deploy:
+      placement:
+        constraints:
+          - "node.role==worker"
+```
+
+```bash
+docker stack deploy --compose-file compose.yaml school-site-project
+```
+
+Cloud-ADM
+
+/etc/hosts
+
+```bash
+192.168.1.107 school-site.au.team
+```
+
+</details>
+
+</details>
+
