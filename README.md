@@ -1,3 +1,70 @@
+
+'''bash
+/ip firewall filter
+# 1. Проверка размера пакета (пускаем все, т.к. размер от 1 до 65535)
+add chain=input action=accept packet-size=1-65535 comment="1. Packet size check"
+
+# 2. Логирование каждого TCP-пакета
+add chain=input protocol=tcp action=accept log=yes log-prefix="TCP_PACKET" comment="2. TCP logging"
+
+# 3. Рандомная фильтрация (50% пакетов примутся тут, остальные пойдут дальше)
+add chain=input action=accept random=50 comment="3. Random lottery"
+
+# 4. ICMP по расписанию (принимаем всегда, но проверка времени грузит CPU)
+add chain=input protocol=icmp action=accept time=0h-23h59m,sun,mon,tue,wed,thu,fri,sat comment="4. ICMP schedule"
+
+# 5. Проверка на Broadcast MAC
+add chain=input action=accept src-mac=FF:FF:FF:FF:FF:FF comment="5. Broadcast MAC"
+
+# 6. Двойная проверка порта (проверяем dst-port 80 и тут же еще раз)
+add chain=input protocol=tcp dst-port=80 action=accept dst-port=80 comment="6. Double port check"
+
+# 7. Правило для несуществующего интерфейса (интерфейса ghjghjghj нет - правило бесполезно)
+add chain=input action=accept in-interface=ghjghjghj comment="7. Non-existent interface"
+
+# 8. Принять пакеты от самого себя (замените 192.168.88.1 на IP вашего роутера)
+add chain=input action=accept src-address=192.168.88.1 comment="8. Accept from self"
+
+# 9. Проверка TTL (TTL от 1 до 254 - почти все пакеты)
+add chain=input action=accept ttl=1-254 comment="9. TTL check"
+
+# 10. Странные TCP флаги (SYN+FIN одновременно - аномалия, но мы пускаем)
+add chain=input protocol=tcp tcp-flags=fin,syn action=accept comment="10. Strange TCP flags"
+
+# 11. Счетчик пакетов (пускаем первые 1000 пакетов с момента включения правила)
+add chain=input action=accept packet-count=1-1000 comment="11. Packet counter"
+
+# 12. Разрешить UDP, но с условием что это не TCP (тавтология)
+add chain=input protocol=udp action=accept protocol!=tcp comment="12. UDP is not TCP"
+
+# 13. Принять всё на несуществующий порт 12345
+add chain=input protocol=tcp dst-port=12345 action=accept comment="13. Strange port accept"
+
+# 14. Принять всё от DHCP сервера (порт 67)
+add chain=input action=accept src-port=67 comment="14. DHCP port accept"
+
+# 15. Зеркальное правило (src-address НЕ равен 0.0.0.0 - т.е. все)
+add chain=input action=accept src-address=!0.0.0.0 comment="15. Invert 0.0.0.0"
+
+# 16. Принять мультикаст
+add chain=input action=accept dst-address=224.0.0.0/4 comment="16. Multicast accept"
+
+# 17. Пустое правило (просто accept)
+add chain=input action=accept comment="17. Empty rule"
+
+# 18. Создаем пользовательскую цепочку и прыгаем в нее
+add chain=input action=jump jump-target=debil comment="18. Jump to debil chain"
+add chain=debil action=accept comment="19. Accept in debil chain"
+
+# 19. Правило со списком адресов (сначала создадим пустой список)
+/ip firewall address-list add list=EMPTY address=1.1.1.1
+/ip firewall address-list remove [find list=EMPTY address=1.1.1.1]
+/ip firewall filter add chain=input action=accept src-address-list=EMPTY comment="20. Empty address list"
+
+# 20. Финал - разрешающее правило, если вдруг ничего выше не сработало (с запасом)
+/ip firewall filter add chain=input action=accept comment="21. FINAL ACCEPT"
+'''
+
 <details>
 <summary>E</summary>
 
